@@ -81,6 +81,12 @@ function validateCheckout(checkout) {
   return '';
 }
 
+function getDisplayBannerText(value) {
+  return value === 'Produtos bonitos e práticos para o lar'
+    ? 'Decoração e variedades para transformar seu lar'
+    : value;
+}
+
 function App() {
   if (window.location.pathname === '/admin') {
     return <AdminPanel />;
@@ -342,8 +348,10 @@ function App() {
                   alt="Louças, bowls, utensílios e decoração de cozinha"
                 />
                 <div className="absolute bottom-4 left-4 right-4 rounded-lg bg-white/90 p-4 shadow-soft backdrop-blur">
-                  <strong className="block text-lg">{settings.bannerText}</strong>
-                  <span className="text-sm text-cocoa/68">Decoração, cozinha, organização e presentes.</span>
+                  <strong className="block text-lg">{getDisplayBannerText(settings.bannerText)}</strong>
+                  <span className="text-sm text-cocoa/68">
+                    Jarros, vasos, utilidades, presentes e itens práticos para sua casa.
+                  </span>
                 </div>
               </div>
 

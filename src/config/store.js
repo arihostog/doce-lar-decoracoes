@@ -7,7 +7,7 @@ export const storeConfig = {
   address: 'Endereço da loja',
   openingHours: 'Segunda a sábado, 9h às 18h',
   whatsappDefaultMessage: 'Olá, vim pelo aplicativo Doce Lar Decorações e Variedades.',
-  bannerText: 'Produtos bonitos e práticos para o lar',
+  bannerText: 'Decoração e variedades para transformar seu lar',
   defaultCustomerName: '',
   defaultCustomerPhone: '',
 };
