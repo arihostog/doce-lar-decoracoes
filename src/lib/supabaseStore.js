@@ -9,6 +9,7 @@ import {
 import {
   addStoredOrder,
   getStoredOrders,
+  normalizeFulfillment,
   ORDER_STORAGE_KEY,
   saveStoredOrders,
   updateStoredOrderStatus,
@@ -26,6 +27,8 @@ const FAILED_FETCH_HELP =
 
 let lastSupabaseError = null;
 let lastConnectionTest = null;
+const PROJECT_REF_MISMATCH_HELP =
+  'A URL do Supabase e a anon key parecem ser de projetos diferentes. Confira as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY na Vercel e publique novamente.';
 
 function setSupabaseError(error) {
   lastSupabaseError = normalizeSupabaseError(error);
@@ -55,6 +58,9 @@ export function getSupabaseDiagnostics() {
   return {
     url: config.url,
     finalUrl: config.finalUrl,
+    urlProjectRef: config.urlProjectRef,
+    anonKeyProjectRef: config.anonKeyProjectRef,
+    projectRefMatches: config.projectRefMatches,
     anonKey: config.anonKeyPreview,
     anonKeyLength: config.anonKeyLength,
     anonKeyStart: config.anonKeyStart,
@@ -71,6 +77,8 @@ function canUseSupabase() {
 }
 
 export async function testSupabaseConnection() {
+  const config = getSupabaseConfig();
+
   if (!canUseSupabase()) {
     const error = new Error('Supabase nao configurado. Confira VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
     setSupabaseError(error);
@@ -79,6 +87,22 @@ export async function testSupabaseConnection() {
       table: 'categories',
       result: null,
       error: lastSupabaseError,
+      checkedAt: new Date().toISOString(),
+    };
+    return lastConnectionTest;
+  }
+
+  if (config.urlProjectRef && config.anonKeyProjectRef && !config.projectRefMatches) {
+    const error = new Error(
+      `Supabase project ref diferente. URL usa "${config.urlProjectRef}", mas a anon key usa "${config.anonKeyProjectRef}".`,
+    );
+    const normalizedError = setSupabaseError(error);
+    normalizedError.friendlyMessage = PROJECT_REF_MISMATCH_HELP;
+    lastConnectionTest = {
+      ok: false,
+      table: 'categories',
+      result: null,
+      error: normalizedError,
       checkedAt: new Date().toISOString(),
     };
     return lastConnectionTest;
@@ -215,7 +239,7 @@ function orderFromSupabase(row) {
     orderNumber: row.order_number ?? row.orderNumber,
     customerName: row.customer_name ?? row.customerName,
     customerPhone: row.customer_phone ?? row.customerPhone,
-    fulfillment: row.delivery_type ?? row.fulfillment,
+    fulfillment: normalizeFulfillment(row.delivery_type ?? row.fulfillment),
     address: deliveryAddressText,
     deliveryAddress: row.deliveryAddress ?? parseDeliveryAddressText(deliveryAddressText),
     paymentMethod: row.payment_method ?? row.paymentMethod,
@@ -237,7 +261,7 @@ function orderToSupabase(order) {
     order_number: order.orderNumber,
     customer_name: order.customerName,
     customer_phone: order.customerPhone,
-    delivery_type: order.fulfillment,
+    delivery_type: normalizeFulfillment(order.fulfillment),
     delivery_address: deliveryAddress,
     payment_method: order.paymentMethod,
     observations: order.notes,
@@ -251,7 +275,7 @@ function orderToSupabase(order) {
 }
 
 function buildDeliveryAddressText(order) {
-  if (order.fulfillment !== 'Receber por entrega') {
+  if (normalizeFulfillment(order.fulfillment) !== 'Delivery') {
     return 'Retirada na loja após confirmação do pedido pelo WhatsApp.';
   }
 

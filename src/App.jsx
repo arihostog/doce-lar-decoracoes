@@ -26,6 +26,7 @@ import {
   buildOrderWhatsappLink,
   createOrderFromCheckout,
   getProductPrice,
+  normalizeFulfillment,
 } from './lib/orderStore.js';
 import { getStoredProducts } from './lib/productStore.js';
 import { getStoredStoreSettings } from './lib/storeSettings.js';
@@ -53,6 +54,33 @@ function isVideoEmbed(url) {
   return url?.includes('youtube.com') || url?.includes('youtu.be') || url?.includes('vimeo.com');
 }
 
+function validateCheckout(checkout) {
+  const fulfillment = normalizeFulfillment(checkout.fulfillment);
+
+  if (!checkout.customerName?.trim()) {
+    return 'Informe seu nome para continuar com o pedido.';
+  }
+
+  if (!checkout.customerPhone?.trim()) {
+    return 'Informe seu telefone para continuar com o pedido.';
+  }
+
+  if (fulfillment === 'Delivery') {
+    const requiredAddressFields = [
+      checkout.deliveryAddress?.street,
+      checkout.deliveryAddress?.number,
+      checkout.deliveryAddress?.neighborhood,
+      checkout.deliveryAddress?.city,
+    ];
+
+    if (requiredAddressFields.some((field) => !field?.trim())) {
+      return 'Informe rua, número, bairro e cidade para continuar com o delivery.';
+    }
+  }
+
+  return '';
+}
+
 function App() {
   if (window.location.pathname === '/admin') {
     return <AdminPanel />;
@@ -69,7 +97,7 @@ function App() {
   const [checkout, setCheckout] = useState({
     customerName: settings.defaultCustomerName,
     customerPhone: settings.defaultCustomerPhone,
-    fulfillment: 'Retirar na loja',
+    fulfillment: 'Retirada na loja',
     paymentMethod: 'Combinar pelo WhatsApp',
     deliveryAddress: {
       street: '',
@@ -219,6 +247,12 @@ function App() {
 
   async function handleCheckoutClick() {
     if (cart.length === 0) {
+      return;
+    }
+
+    const checkoutError = validateCheckout(checkout);
+    if (checkoutError) {
+      window.alert(checkoutError);
       return;
     }
 
@@ -697,6 +731,8 @@ function CartItem({ item, onIncrement, onDecrement, onRemove }) {
 }
 
 function CheckoutForm({ checkout, setCheckout }) {
+  const fulfillment = normalizeFulfillment(checkout.fulfillment);
+
   function updateField(field, value) {
     setCheckout((current) => ({ ...current, [field]: value }));
   }
@@ -716,16 +752,16 @@ function CheckoutForm({ checkout, setCheckout }) {
       <div className="rounded-lg border border-cocoa/10 bg-cream p-3">
         <p className="mb-3 text-sm font-black text-cocoa">Entrega</p>
         <div className="grid grid-cols-2 gap-2">
-          {['Retirar na loja', 'Receber por entrega'].map((option) => (
+          {['Retirada na loja', 'Delivery'].map((option) => (
             <button
               key={option}
               type="button"
               onClick={() => updateField('fulfillment', option)}
               className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-2 text-sm font-bold ${
-                checkout.fulfillment === option ? 'bg-white text-rose shadow-sm' : 'text-cocoa/62'
+                fulfillment === option ? 'bg-white text-rose shadow-sm' : 'text-cocoa/62'
               }`}
             >
-              {option === 'Receber por entrega' ? <Truck size={16} /> : <ShoppingBag size={16} />}
+              {option === 'Delivery' ? <Truck size={16} /> : <ShoppingBag size={16} />}
               {option}
             </button>
           ))}
@@ -736,40 +772,46 @@ function CheckoutForm({ checkout, setCheckout }) {
         <input
           className="h-11 rounded-lg border border-cocoa/12 bg-white px-4 text-sm outline-none focus:border-rose"
           placeholder="Nome"
+          required
           value={checkout.customerName}
           onChange={(event) => updateField('customerName', event.target.value)}
         />
         <input
           className="h-11 rounded-lg border border-cocoa/12 bg-white px-4 text-sm outline-none focus:border-rose"
           placeholder="Telefone"
+          required
           value={checkout.customerPhone}
           onChange={(event) => updateField('customerPhone', event.target.value)}
         />
       </div>
 
-      {checkout.fulfillment === 'Receber por entrega' ? (
+      {fulfillment === 'Delivery' ? (
         <div className="grid gap-2 rounded-lg border border-cocoa/10 bg-cream p-3 sm:grid-cols-2">
           <input
             className="h-11 rounded-lg border border-cocoa/12 bg-white px-4 text-sm outline-none focus:border-rose sm:col-span-2"
             placeholder="Rua"
+            required
             value={checkout.deliveryAddress.street}
             onChange={(event) => updateDeliveryAddress('street', event.target.value)}
           />
           <input
             className="h-11 rounded-lg border border-cocoa/12 bg-white px-4 text-sm outline-none focus:border-rose"
             placeholder="Número"
+            required
             value={checkout.deliveryAddress.number}
             onChange={(event) => updateDeliveryAddress('number', event.target.value)}
           />
           <input
             className="h-11 rounded-lg border border-cocoa/12 bg-white px-4 text-sm outline-none focus:border-rose"
             placeholder="Bairro"
+            required
             value={checkout.deliveryAddress.neighborhood}
             onChange={(event) => updateDeliveryAddress('neighborhood', event.target.value)}
           />
           <input
             className="h-11 rounded-lg border border-cocoa/12 bg-white px-4 text-sm outline-none focus:border-rose"
             placeholder="Cidade"
+            required
             value={checkout.deliveryAddress.city}
             onChange={(event) => updateDeliveryAddress('city', event.target.value)}
           />

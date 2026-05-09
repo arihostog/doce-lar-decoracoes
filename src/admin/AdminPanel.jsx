@@ -36,6 +36,7 @@ import { getStoredProducts, resetStoredProducts } from '../lib/productStore.js';
 import {
   buildOrderWhatsappLink,
   getStoredOrders,
+  normalizeFulfillment,
   orderStatuses,
   updateStoredOrderStatus,
 } from '../lib/orderStore.js';
@@ -685,11 +686,11 @@ export default function AdminPanel() {
                       <div className="mt-3 grid gap-2 text-sm text-cocoa/75 md:grid-cols-2">
                         <span><strong>Cliente:</strong> {order.customerName || '-'}</span>
                         <span><strong>Telefone:</strong> {order.customerPhone || '-'}</span>
-                        <span><strong>Forma de entrega:</strong> {order.fulfillment}</span>
+                        <span><strong>Forma de entrega:</strong> {normalizeFulfillment(order.fulfillment)}</span>
                         <span><strong>Pagamento:</strong> {order.paymentMethod}</span>
                         <span className="md:col-span-2">
                           <strong>Endereço/retirada:</strong>{' '}
-                          {order.fulfillment === 'Receber por entrega'
+                          {normalizeFulfillment(order.fulfillment) === 'Delivery'
                             ? [
                                 order.deliveryAddress?.street,
                                 order.deliveryAddress?.number,
@@ -1464,6 +1465,18 @@ function SupabaseDiagnostics({ diagnostics, migrationMessage, onMigrate, onTestC
       </div>
 
       <dl className="mt-4 grid gap-3 text-sm lg:grid-cols-4">
+        <div className="rounded-md bg-cream p-3">
+          <dt className="font-black text-cocoa/60">Project ref da URL</dt>
+          <dd className="mt-1 break-all font-bold">{diagnostics.urlProjectRef || '-'}</dd>
+        </div>
+        <div className="rounded-md bg-cream p-3">
+          <dt className="font-black text-cocoa/60">Project ref da anon key</dt>
+          <dd className="mt-1 break-all font-bold">{diagnostics.anonKeyProjectRef || '-'}</dd>
+        </div>
+        <div className="rounded-md bg-cream p-3">
+          <dt className="font-black text-cocoa/60">URL e chave combinam?</dt>
+          <dd className="mt-1 break-all font-bold">{diagnostics.projectRefMatches ? 'Sim' : 'Não'}</dd>
+        </div>
         <div className="rounded-md bg-cream p-3">
           <dt className="font-black text-cocoa/60">URL final usada pelo cliente</dt>
           <dd className="mt-1 break-all font-bold">{diagnostics.finalUrl || 'Não configurada'}</dd>

@@ -6,9 +6,22 @@ export function getProductPrice(product) {
   return product.promotionalPrice ?? product.price;
 }
 
+export function normalizeFulfillment(value) {
+  if (value === 'Receber por entrega') {
+    return 'Delivery';
+  }
+
+  if (value === 'Retirar na loja') {
+    return 'Retirada na loja';
+  }
+
+  return value || 'Retirada na loja';
+}
+
 export function buildOrderMessage(order, settings) {
   const defaultMessage =
-    settings.whatsappDefaultMessage?.trim() || 'Olá, vim pelo aplicativo Doce Lar Decorações e Variedades.';
+    cleanDefaultWhatsappMessage(settings.whatsappDefaultMessage);
+  const fulfillment = normalizeFulfillment(order.fulfillment);
   const productLines = order.items
     .map(
       (item, index) =>
@@ -18,16 +31,19 @@ export function buildOrderMessage(order, settings) {
     )
     .join('\n');
 
-  const deliveryText =
-    order.fulfillment === 'Receber por entrega'
+  const deliverySection =
+    fulfillment === 'Delivery'
       ? [
+          'Endereço para delivery:',
           `Rua: ${order.deliveryAddress?.street || ''}`,
           `Número: ${order.deliveryAddress?.number || ''}`,
           `Bairro: ${order.deliveryAddress?.neighborhood || ''}`,
           `Cidade: ${order.deliveryAddress?.city || ''}`,
-          `Referência: ${order.deliveryAddress?.reference || ''}`,
-        ].join('\n')
-      : 'Retirada na loja após confirmação do pedido pelo WhatsApp.';
+          order.deliveryAddress?.reference ? `Referência: ${order.deliveryAddress.reference}` : '',
+        ].filter(Boolean)
+      : ['Retirada:', 'Retirada na loja após confirmação do pedido pelo WhatsApp.'];
+
+  const notesLine = order.notes ? [`Observações: ${order.notes}`] : [];
 
   return [
     defaultMessage,
@@ -36,16 +52,15 @@ export function buildOrderMessage(order, settings) {
     `Pedido: ${order.orderNumber}`,
     `Cliente: ${order.customerName}`,
     `Telefone: ${order.customerPhone}`,
-    `Forma de entrega: ${order.fulfillment}`,
-    'Endereço ou retirada:',
-    deliveryText,
+    `Forma de entrega: ${fulfillment}`,
+    ...deliverySection,
     '',
     'Produtos:',
     productLines,
     '',
     `Total: ${formatCurrency(order.total)}`,
     `Forma de pagamento escolhida: ${order.paymentMethod}`,
-    `Observações: ${order.notes || ''}`,
+    ...notesLine,
     '',
     'Aguardo a confirmação da disponibilidade e do prazo para retirada ou entrega.',
   ].join('\n');
@@ -66,7 +81,7 @@ export function createOrderFromCheckout({ cart, checkout, total }) {
     orderNumber,
     customerName: checkout.customerName || '',
     customerPhone: checkout.customerPhone || '',
-    fulfillment: checkout.fulfillment,
+    fulfillment: normalizeFulfillment(checkout.fulfillment),
     address: buildAddressLine(checkout.deliveryAddress),
     deliveryAddress: {
       street: checkout.deliveryAddress?.street || '',
@@ -132,6 +147,7 @@ export function updateStoredOrderStatus(orderId, status) {
 function normalizeOrder(order) {
   return {
     ...order,
+    fulfillment: normalizeFulfillment(order.fulfillment),
     status: orderStatuses.includes(order.status) ? order.status : 'Novo',
     total: Number(order.total) || 0,
     deliveryAddress: {
@@ -143,6 +159,16 @@ function normalizeOrder(order) {
     },
     items: Array.isArray(order.items) ? order.items : [],
   };
+}
+
+function cleanDefaultWhatsappMessage(value) {
+  const fallback = 'Olá! Vim pelo aplicativo da Doce Lar Decorações e Variedades.';
+  const message = value?.trim() || fallback;
+
+  return message
+    .replace(/\s*e gostaria de fazer um pedido\.?$/i, '.')
+    .replace(/Gostaria de fazer este pedido:?$/i, '')
+    .trim();
 }
 
 function buildAddressLine(deliveryAddress = {}) {
